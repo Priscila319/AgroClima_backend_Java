@@ -1,0 +1,89 @@
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+
+spring:
+  application:
+    name: agroclima-api
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/agroclima}
+    username: root
+    password: Admin
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:12}
+      connection-timeout: 30000
+      data-source-properties:
+        connectionTimeZone: UTC
+        characterEncoding: UTF-8
+        allowPublicKeyRetrieval: true
+        sslMode: DISABLED
+  jpa:
+    open-in-view: false
+    database-platform: org.hibernate.dialect.MySQLDialect
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+        type:
+          preferred_uuid_jdbc_type: CHAR
+          preferred_boolean_jdbc_type: BIT
+        format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+app:
+  security:
+    jwt-secret: agroclima_secret_key_com_mais_de_32_caracteres_123456
+    token-ttl-minutes: 60
+    initial-admin-email: admin@agroclima.com
+    initial-admin-password: ""
+    internal-api-key: 
+    max-login-failures: 5
+    lockout-minutes: 15
+  cors:
+    allowed-origins: http://localhost,http://localhost:3000,http://localhost:5173,http://localhost:5500,http://localhost:8081,http://127.0.0.1,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5500,http://127.0.0.1:8081
+  thingspeak:
+    # Canal consumido diretamente pelo Java. Defaults seguros: integração desligada.
+    enabled: true
+    channel-id: 3499301
+    read-api-key: 
+    base-url: https://api.thingspeak.com
+    # Vazio = mapa oficial (temperature=field1, humidity=field2), aplicado no código.
+    field-map: {"temperature":"field1","humidity":"field2"}
+    poll-interval-seconds: ${THINGSPEAK_POLL_INTERVAL_SECONDS:300}
+    initial-delay-seconds: ${THINGSPEAK_INITIAL_DELAY_SECONDS:15}
+    results-limit: ${THINGSPEAK_RESULTS_LIMIT:500}
+
+logging:
+  level:
+    br.com.agroclima: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
