@@ -7,14 +7,20 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 
 public final class UserDtos {
     private UserDtos() {}
 
+    /**
+     * {@code permissionKeys} traz as permissões efetivas do usuário (união das permissões
+     * dos papéis). O frontend usa isso para montar a navegação; a API continua validando
+     * cada operação com as mesmas permissões.
+     */
     public record UserResponse(UUID id, String name, String email, String phone, String organization,
                                String jobTitle, String roleKey, String role, String status,
-                               Instant createdAt, Instant lastLoginAt) {}
+                               Instant createdAt, Instant lastLoginAt, Set<String> permissionKeys) {}
 
     public record CreateUserRequest(
         @NotBlank @Size(min = 2, max = 160) String fullName,

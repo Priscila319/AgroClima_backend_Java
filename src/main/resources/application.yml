@@ -12,17 +12,19 @@ spring:
     name: agroclima-api
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/agroclima}
-    username: root
-    password: Admin
+    # Credenciais vêm do ambiente (.env local ou secrets da plataforma). Sem valor, a API não sobe.
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
     hikari:
       maximum-pool-size: ${DATABASE_POOL_SIZE:12}
       connection-timeout: 30000
       data-source-properties:
         connectionTimeZone: UTC
         characterEncoding: UTF-8
-        allowPublicKeyRetrieval: true
-        sslMode: DISABLED
+        # PREFERRED usa TLS quando o MySQL oferece (padrão do MySQL 8.4). Em produção use REQUIRED ou VERIFY_CA.
+        allowPublicKeyRetrieval: ${DATABASE_ALLOW_PUBLIC_KEY_RETRIEVAL:false}
+        sslMode: ${DATABASE_SSL_MODE:PREFERRED}
   jpa:
     open-in-view: false
     database-platform: org.hibernate.dialect.MySQLDialect
@@ -54,28 +56,38 @@ management:
         enabled: true
 
 springdoc:
+  # Documentação da API desligada por padrão; use SWAGGER_ENABLED=true apenas em desenvolvimento.
   api-docs:
+    enabled: ${SWAGGER_ENABLED:false}
     path: /v3/api-docs
   swagger-ui:
+    enabled: ${SWAGGER_ENABLED:false}
     path: /swagger-ui.html
 
 app:
   security:
-    jwt-secret: agroclima_secret_key_com_mais_de_32_caracteres_123456
-    token-ttl-minutes: 60
-    initial-admin-email: admin@agroclima.com
-    initial-admin-password: ""
-    internal-api-key: 
-    max-login-failures: 5
-    lockout-minutes: 15
+    # Segredos: nenhum valor real neste arquivo. Padrão vazio = a API falha ao subir (fail-fast).
+    jwt-secret: ${JWT_SECRET:}
+    token-ttl-minutes: ${JWT_TTL_MINUTES:60}
+    initial-admin-email: ${INITIAL_ADMIN_EMAIL:admin@agroclima.com}
+    initial-admin-password: ${INITIAL_ADMIN_PASSWORD:}
+    internal-api-key: ${INTERNAL_API_KEY:}
+    # Chave AES-256 (Base64 de 32 bytes) que cifra campos sensíveis no banco: openssl rand -base64 32
+    field-encryption-key: ${FIELD_ENCRYPTION_KEY:}
+    max-login-failures: ${MAX_LOGIN_FAILURES:5}
+    lockout-minutes: ${LOGIN_LOCKOUT_MINUTES:15}
+  seed:
+    climate:
+      # Insere 960 leituras fictícias (24/dia x 40 dias) ao subir a API. Use false/SEED_CLIMATE_ENABLED=false em produção.
+      enabled: ${SEED_CLIMATE_ENABLED:true}
   cors:
-    allowed-origins: http://localhost,http://localhost:3000,http://localhost:5173,http://localhost:5500,http://localhost:8081,http://127.0.0.1,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5500,http://127.0.0.1:8081
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost,http://localhost:3000,http://localhost:5173,http://localhost:5500,http://localhost:8081,http://127.0.0.1,http://127.0.0.1:3000,http://127.0.0.1:5173,http://127.0.0.1:5500,http://127.0.0.1:8081}
   thingspeak:
     # Canal consumido diretamente pelo Java. Defaults seguros: integração desligada.
-    enabled: true
-    channel-id: 3499301
-    read-api-key: 
-    base-url: https://api.thingspeak.com
+    enabled: ${THINGSPEAK_ENABLED:true}
+    channel-id: ${THINGSPEAK_CHANNEL_ID:3499301}
+    read-api-key: ${THINGSPEAK_READ_API_KEY:}
+    base-url: ${THINGSPEAK_URL:https://api.thingspeak.com}
     # Vazio = mapa oficial (temperature=field1, humidity=field2), aplicado no código.
     field-map: {"temperature":"field1","humidity":"field2"}
     poll-interval-seconds: ${THINGSPEAK_POLL_INTERVAL_SECONDS:300}

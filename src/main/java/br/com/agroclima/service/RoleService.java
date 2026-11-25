@@ -69,6 +69,7 @@ public class RoleService {
         if (key.startsWith("integrations.")) return "Integrações";
         if (key.startsWith("reports.")) return "Relatórios";
         if (key.startsWith("analytics.")) return "Análises";
+        if (key.startsWith("models.")) return "Modelos Preditivos";
         if (key.startsWith("monitoring.")) return "Monitoramento";
         if (key.startsWith("design.")) return "Design System";
         return "Painéis";

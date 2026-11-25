@@ -22,7 +22,13 @@ public class SettingsController {
     @GetMapping
     public JsonNode get() { return settings.get(); }
 
+    /** Identidade visual, tema e tokens de design para qualquer usuário autenticado. */
+    @GetMapping("/public")
+    @PreAuthorize("isAuthenticated()")
+    public JsonNode publicView() { return settings.publicView(); }
+
     @PatchMapping
+    @PreAuthorize("hasAuthority('settings.manage')")
     public JsonNode update(@RequestBody JsonNode patch, @AuthenticationPrincipal AgroUserPrincipal actor) {
         return settings.update(patch, actor);
     }

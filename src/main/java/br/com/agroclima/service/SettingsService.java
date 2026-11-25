@@ -19,7 +19,13 @@ import java.util.Set;
 
 @Service
 public class SettingsService {
-    private static final Set<String> SECTIONS = Set.of("general", "notifications", "appearance", "security");
+    private static final Set<String> SECTIONS = Set.of("general", "notifications", "appearance", "security", "design");
+    private static final Set<String> DESIGN_THEMES = Set.of("light", "dark");
+    private static final Set<String> DESIGN_COLOR_KEYS = Set.of(
+        "primary", "primaryHover", "secondary", "background", "surface", "text", "textMuted", "border", "button", "buttonText");
+    private static final Set<String> DESIGN_FONTS = Set.of("dm-sans", "manrope", "system", "serif", "mono");
+    private static final Set<String> DESIGN_SHADOWS = Set.of("none", "soft", "medium", "strong");
+    private static final java.util.regex.Pattern HEX_COLOR = java.util.regex.Pattern.compile("^#[0-9a-fA-F]{6}$");
     private final AppSettingRepository settings;
     private final UserRepository users;
     private final VarietyRepository varieties;
@@ -101,6 +107,9 @@ public class SettingsService {
             String theme = data.path("theme").asText("");
             if (!theme.equals("light") && !theme.equals("dark")) throw ApiException.badRequest("Tema inválido.");
         }
+        if (section.equals("design")) {
+            validateDesign(data);
+        }
         if (section.equals("security")) {
             int timeout;
             try { timeout = Integer.parseInt(data.path("sessionTimeout").asText("")); }
@@ -112,6 +121,51 @@ public class SettingsService {
             if (data.path("notifyNewLogin").asBoolean(false)) {
                 throw ApiException.badRequest("Notificações por e-mail ainda não estão configuradas.");
             }
+        }
+    }
+
+    /**
+     * Valida os tokens do Design System: cores hex por tema, fontes do catálogo,
+     * escala tipográfica e raios/sombra de componentes. Os limites mantêm a
+     * responsividade e a legibilidade do layout existente.
+     */
+    private void validateDesign(ObjectNode data) {
+        for (String theme : DESIGN_THEMES) {
+            JsonNode palette = data.get(theme);
+            if (palette == null || !palette.isObject()) throw ApiException.badRequest("A paleta do tema '" + theme + "' é obrigatória.");
+            for (String key : DESIGN_COLOR_KEYS) {
+                JsonNode color = palette.get(key);
+                if (color == null || !color.isTextual() || !HEX_COLOR.matcher(color.asText()).matches()) {
+                    throw ApiException.badRequest("Cor inválida em '" + theme + "." + key + "': use o formato hexadecimal #RRGGBB.");
+                }
+            }
+        }
+        JsonNode typography = data.get("typography");
+        if (typography == null || !typography.isObject()) throw ApiException.badRequest("A seção de tipografia é obrigatória.");
+        for (String key : Set.of("bodyFont", "headingFont")) {
+            JsonNode font = typography.get(key);
+            if (font == null || !font.isTextual() || !DESIGN_FONTS.contains(font.asText())) {
+                throw ApiException.badRequest("Fonte inválida em 'typography." + key + "'.");
+            }
+        }
+        validateDesignRange(typography, "fontScale", 85, 125);
+        JsonNode components = data.get("components");
+        if (components == null || !components.isObject()) throw ApiException.badRequest("A seção de componentes é obrigatória.");
+        validateDesignRange(components, "cardRadius", 0, 28);
+        validateDesignRange(components, "buttonRadius", 0, 24);
+        validateDesignRange(components, "borderWidth", 0, 3);
+        JsonNode shadow = components.get("cardShadow");
+        if (shadow == null || !shadow.isTextual() || !DESIGN_SHADOWS.contains(shadow.asText())) {
+            throw ApiException.badRequest("Sombra de card inválida: use none, soft, medium ou strong.");
+        }
+    }
+
+    // CORREÇÃO: o parâmetro agora é JsonNode (antes era ObjectNode), pois
+    // data.get(...) retorna JsonNode e o método só usa get(...).
+    private void validateDesignRange(JsonNode data, String key, int min, int max) {
+        JsonNode value = data.get(key);
+        if (value == null || !value.isNumber() || value.asInt() < min || value.asInt() > max) {
+            throw ApiException.badRequest("O valor de '" + key + "' deve ser um número entre " + min + " e " + max + ".");
         }
     }
 
@@ -135,6 +189,46 @@ public class SettingsService {
         root.set("security", mapper.createObjectNode()
             .put("strongPasswords", true).put("requireMfa", false).put("notifyNewLogin", false)
             .put("lockAfterFailures", true).put("sessionTimeout", Long.toString(properties.security().tokenTtlMinutes())));
+        root.set("design", designDefaults());
         return root;
+    }
+
+    /**
+     * Tokens padrão do Design System. Os valores espelham exatamente os tokens
+     * atuais de css/variables.css e css/themes.css, para que restaurar o padrão
+     * preserve a identidade visual original em ambos os temas.
+     */
+    private ObjectNode designDefaults() {
+        ObjectNode design = mapper.createObjectNode();
+        design.set("light", mapper.createObjectNode()
+            .put("primary", "#167c55").put("primaryHover", "#116d4a").put("secondary", "#0b3024")
+            .put("background", "#f5f8f6").put("surface", "#ffffff").put("text", "#192923")
+            .put("textMuted", "#6d7d76").put("border", "#e2e9e5")
+            .put("button", "#167c55").put("buttonText", "#ffffff"));
+        design.set("dark", mapper.createObjectNode()
+            .put("primary", "#5fc28d").put("primaryHover", "#116d4a").put("secondary", "#d4e9dc")
+            .put("background", "#101a15").put("surface", "#1a2922").put("text", "#e7f0ea")
+            .put("textMuted", "#a8b9b0").put("border", "#34483d")
+            .put("button", "#5fc28d").put("buttonText", "#ffffff"));
+        design.set("typography", mapper.createObjectNode()
+            .put("bodyFont", "dm-sans").put("headingFont", "manrope").put("fontScale", 100));
+        design.set("components", mapper.createObjectNode()
+            .put("cardRadius", 15).put("buttonRadius", 9).put("borderWidth", 1).put("cardShadow", "soft"));
+        return design;
+    }
+
+    /**
+     * Visão pública (qualquer usuário autenticado): identidade do sistema, tema e
+     * tokens de design. Não expõe notificações nem políticas de segurança.
+     */
+    @Transactional(readOnly = true)
+    public JsonNode publicView() {
+        JsonNode all = get();
+        ObjectNode general = (ObjectNode) all.get("general").deepCopy();
+        ObjectNode result = mapper.createObjectNode();
+        result.set("general", general);
+        result.set("appearance", all.get("appearance").deepCopy());
+        result.set("design", all.get("design").deepCopy());
+        return result;
     }
 }

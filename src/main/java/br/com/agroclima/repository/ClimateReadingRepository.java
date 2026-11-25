@@ -9,6 +9,7 @@ import java.util.UUID;
 
 public interface ClimateReadingRepository extends JpaRepository<ClimateReadingEntity, UUID> {
     boolean existsByChannelIdAndEntryId(String channelId, Long entryId);
+    long countByChannelIdAndEntryIdBetween(String channelId, Long fromEntryId, Long toEntryId);
     List<ClimateReadingEntity> findTop500ByOrderByCapturedAtDesc();
     List<ClimateReadingEntity> findTop5000ByCapturedAtBetweenOrderByCapturedAtAsc(Instant from, Instant to);
     List<ClimateReadingEntity> findTop5000ByChannelIdAndCapturedAtBetweenOrderByCapturedAtAsc(String channelId, Instant from, Instant to);

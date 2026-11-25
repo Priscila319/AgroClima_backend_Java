@@ -1,6 +1,5 @@
 package br.com.agroclima.service;
 
-import br.com.agroclima.config.RoleCatalog;
 import br.com.agroclima.domain.UserEntity;
 import br.com.agroclima.dto.AuthDtos;
 import br.com.agroclima.dto.UserDtos;
@@ -60,13 +59,6 @@ public class AuthService {
             .orElseThrow(() -> ApiException.unauthorized("Conta indisponível."));
         JwtService.IssuedToken token = jwtService.issue(current.getEmail(), current.getId().toString());
         return new AuthDtos.AuthResponse(token.value(), "Bearer", token.expiresAt(), UserMapper.toResponse(current));
-    }
-
-    @Transactional
-    public UserDtos.UserResponse register(AuthDtos.RegisterRequest request) {
-        UserDtos.CreateUserRequest safeRequest = new UserDtos.CreateUserRequest(request.fullName(), request.email(),
-            request.password(), request.phone(), request.organization(), request.jobTitle(), RoleCatalog.PRODUCER);
-        return users.registerProducer(safeRequest, RoleCatalog.PRODUCER, true, null);
     }
 
     @Transactional(readOnly = true)

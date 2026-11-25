@@ -27,7 +27,9 @@ Depois de copiar `backend/java/.env.example` para `backend/java/.env`, configure
 
 - `DATABASE_URL=jdbc:mysql://localhost:3306/agroclima`, `DATABASE_USER` e `DATABASE_PASSWORD` para o servidor local;
 - `JWT_SECRET` e `INTERNAL_API_KEY` como segredos aleatórios independentes com pelo menos 32 bytes;
+- `FIELD_ENCRYPTION_KEY`: chave AES-256 (Base64 de 32 bytes, `openssl rand -base64 32`) que cifra o telefone dos usuários no banco. Guarde-a fora do Git; sem ela a API não sobe e, se for perdida, os telefones cifrados não podem ser recuperados;
 - `INITIAL_ADMIN_EMAIL` e `INITIAL_ADMIN_PASSWORD` para criar o primeiro Administrador;
+- `DATABASE_SSL_MODE` (`PREFERRED` por padrão; use `REQUIRED` ou `VERIFY_CA` em produção) e `SWAGGER_ENABLED` (`false` por padrão);
 - `CORS_ALLOWED_ORIGINS` com as origens locais permitidas, sem wildcard;
 - `SERVER_ADDRESS=127.0.0.1` para o processo local e `PORT=8080`.
 
@@ -45,14 +47,17 @@ bash backend/java/run-local.sh
 
 A API local fica em `http://localhost:8080`:
 
-- Swagger UI: `/swagger-ui.html`;
-- OpenAPI JSON: `/v3/api-docs`;
+- Swagger UI: `/swagger-ui.html` (somente com `SWAGGER_ENABLED=true`);
+- OpenAPI JSON: `/v3/api-docs` (somente com `SWAGGER_ENABLED=true`);
 - Health: `/actuator/health`.
 
 ## Prefixos e proteção
 
-- `/api/auth/**`: login e cadastro público de Produtor;
-- `/api/users/**`, `/api/roles/**`, `/api/permissions`, `/api/settings`, `/api/audit-events`: JWT e permissões;
+- `/api/auth/login`: público (emite JWT). `/api/auth/me`: autenticado; devolve o perfil e as permissões efetivas (`permissionKeys`). **Cadastro público removido** — não existe `/api/auth/register`;
+- `/api/users/**`: exige `users.manage` (criação de contas é exclusiva do administrador). Telefones são validados e normalizados para dígitos com DDI 55;
+- `/api/roles/**`, `/api/permissions`: exigem `rbac.manage`;
+- `/api/settings`: leitura/escrita exigem `settings.manage`. `/api/settings/public`: qualquer usuário autenticado (identidade visual, tema e tokens de design);
+- `/api/audit-events`: leitura exige `logs.read`; registro de evento próprio exige autenticação;
 - `/api/plantations/**`: escopo por proprietário, papel e permissões aplicados no servidor; datas controladas pela API;
 - `/api/varieties/**`: consulta autenticada; inclusão e desativação somente pelo Administrador;
 - `/api/climate/readings/**`: consulta autenticada;

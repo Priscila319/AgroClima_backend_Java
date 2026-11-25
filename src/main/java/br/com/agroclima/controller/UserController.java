@@ -38,7 +38,7 @@ public class UserController {
     @ResponseStatus(HttpStatus.CREATED)
     public UserDtos.UserResponse create(@Valid @RequestBody UserDtos.CreateUserRequest request,
                                         @AuthenticationPrincipal AgroUserPrincipal actor) {
-        return users.registerProducer(request, request.roleKey(), false, actor);
+        return users.create(request, actor);
     }
 
     @PatchMapping("/{id}")

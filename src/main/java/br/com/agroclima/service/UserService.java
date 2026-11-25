@@ -48,29 +48,33 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserDtos.UserResponse get(UUID id) { return UserMapper.toResponse(findUser(id)); }
 
+    /**
+     * Criação de contas exclusivamente administrativa (protegida por users.manage).
+     * O cadastro público foi removido: não existe mais fluxo de auto-registro.
+     */
     @Transactional
-    public UserDtos.UserResponse registerProducer(UserDtos.CreateUserRequest request, String roleKey,
-                                                  boolean publicSignup, AgroUserPrincipal actor) {
+    public UserDtos.UserResponse create(UserDtos.CreateUserRequest request, AgroUserPrincipal actor) {
         boolean strongPasswords = settings.get().path("security").path("strongPasswords").asBoolean(true);
         PasswordPolicy.require(request.password(), strongPasswords);
         String email = normalizeEmail(request.email());
         if (users.existsByEmailIgnoreCase(email)) throw ApiException.conflict("Já existe uma conta com este e-mail.");
-        String assignedRole = publicSignup ? RoleCatalog.PRODUCER : roleKey;
+        String assignedRole = request.roleKey();
         if (!RoleCatalog.contains(assignedRole)) throw ApiException.badRequest("Papel inválido.");
+        String phone = PhoneNumber.normalize(request.phone());
         RoleEntity role = findRole(assignedRole);
         UserEntity user = new UserEntity(request.fullName(), email, passwordEncoder.encode(request.password()),
-            request.phone(), request.organization(), request.jobTitle(), Set.of(role));
+            phone, request.organization(), request.jobTitle(), Set.of(role));
         UserEntity saved = users.save(user);
-        String details = "Conta criada com papel " + RoleCatalog.label(assignedRole) + ".";
-        if (publicSignup) audit.record(saved, "Criou uma conta", "Usuários", details);
-        else audit.record(actor, "Cadastrou um usuário", "Usuários", details);
+        audit.record(actor, "Cadastrou um usuário", "Usuários",
+            "Conta criada com papel " + RoleCatalog.label(assignedRole) + ".");
         return UserMapper.toResponse(saved);
     }
 
     @Transactional
     public UserDtos.UserResponse updateProfile(UUID userId, UserDtos.UpdateProfileRequest request, AgroUserPrincipal actor) {
         UserEntity user = findUser(userId);
-        user.updateProfile(request.fullName(), request.phone(), request.organization(), request.jobTitle());
+        String phone = PhoneNumber.normalize(request.phone());
+        user.updateProfile(request.fullName(), phone, request.organization(), request.jobTitle());
         UserEntity saved = users.save(user);
         audit.record(actor, "Atualizou dados de um usuário", "Usuários", saved.getEmail() + " · perfil atualizado.");
         return UserMapper.toResponse(saved);

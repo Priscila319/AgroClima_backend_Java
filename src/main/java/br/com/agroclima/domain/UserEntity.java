@@ -1,6 +1,8 @@
 package br.com.agroclima.domain;
 
+import br.com.agroclima.security.EncryptedStringConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -38,7 +40,9 @@ public class UserEntity {
     @Column(name = "password_hash", nullable = false, length = 100)
     private String passwordHash;
 
-    @Column(nullable = false, length = 30)
+    // Dado pessoal cifrado em repouso (AES-256-GCM). A API recebe e devolve o valor em claro.
+    @Convert(converter = EncryptedStringConverter.class)
+    @Column(nullable = false, length = 255)
     private String phone = "";
 
     @Column(nullable = false, length = 160)
