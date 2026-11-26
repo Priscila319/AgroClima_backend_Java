@@ -27,11 +27,11 @@ spring:
         sslMode: ${DATABASE_SSL_MODE:PREFERRED}
   jpa:
     open-in-view: false
-    database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update # Ou 'none' / 'validate' se você já subiu as tabelas via script SQL no DBeaver
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
         jdbc:
           time_zone: UTC
         type:
